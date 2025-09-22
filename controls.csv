@@ -1,0 +1,11 @@
+control_id,category,description,check_command,expected_result,remediable,remediation_command
+SWAP_001,System,Swappiness should be 1,cat /proc/sys/vm/swappiness,1,true,echo 1 > /proc/sys/vm/swappiness && echo 'vm.swappiness=1' >> /etc/sysctl.conf
+THP_001,System,Transparent Huge Pages should be disabled (defrag),grep -F '[never]' /sys/kernel/mm/transparent_hugepage/defrag,[never],true,echo never > /sys/kernel/mm/transparent_hugepage/defrag
+THP_002,System,Transparent Huge Pages should be disabled (enabled),grep -F '[never]' /sys/kernel/mm/transparent_hugepage/enabled,[never],true,echo never > /sys/kernel/mm/transparent_hugepage/enabled
+SELINUX_001,System,SELinux should be disabled,getenforce,Disabled,true,setenforce 0 && sed -i 's/^SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
+FIREWALL_001,Network,Firewalld should not be running (RHEL7+),systemctl is-active firewalld,unknown,true,systemctl stop firewalld && systemctl disable firewalld
+IPTABLES_001,Network,Iptables should not be running (pre-RHEL7),service iptables status,,true,service iptables stop && chkconfig iptables off
+HOSTNAME_001,Network,Hostname should be FQDN and lowercase,hostname -f,,false,
+JAVA_001,Java,Java 8 or later should be installed and supported,find /usr/java -name "java" -exec {} -version \; 2>&1 | grep -E "1\.8\.[0-9]+",,false,
+OVERCOMMIT_001,System,Overcommit memory should be 1,cat /proc/sys/vm/overcommit_memory,1,true,echo 1 > /proc/sys/vm/overcommit_memory && echo 'vm.overcommit_memory=1' >> /etc/sysctl.conf
+NTP_001,System,NTP should be synced,ntpstat | grep -c "synchronised to NTP server",1,false,

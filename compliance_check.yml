@@ -1,0 +1,68 @@
+---
+# compliance_check.yml
+# Reads controls from CSV and checks system compliance.
+
+- name: Load and Execute Compliance Checks
+  hosts: all
+  become: yes
+  vars:
+    controls_file: "controls.csv"
+    compliance_report: []
+    csv_delimiter: ","
+    cloudera_compliance_report: "/tmp/compliance_report_{{ inventory_hostname }}.json"
+
+  tasks:
+  - name: Copy controls.csv to remote host
+    copy:
+      src: controls.csv
+      dest: /tmp/controls.csv
+    become: false
+
+  - name: Read Controls CSV File
+    read_csv:
+      path: "/tmp/controls.csv"
+      delimiter: "{{ csv_delimiter }}"
+    register: controls_csv
+
+  - name: Initialize Compliance Report
+    set_fact:
+      compliance_report: []
+
+  - name: Execute Each Compliance Check
+    include_tasks: compliance_check_block.yml
+    loop: "{{ controls_csv.list }}"
+    loop_control:
+      label: "{{ item.control_id }} - {{ item.description }}"
+
+  - name: Display Compliance Summary
+    debug:
+      msg: |
+        Compliance Check Summary:
+        {% for result in compliance_report %}
+        [{{ result.status }}] {{ result.control_id }}: {{ result.description }}
+        {% endfor %}
+
+  - name: Save Compliance Report to JSON File
+    copy:
+      content: "{{ compliance_report | to_nice_json }}"
+      dest: cloudera_compliance_report
+    become: false
+    run_once: true
+
+
+  - name: Print Compliance Summary
+    debug:
+      msg: |
+        Compliance Results Summary:
+        Compliant:
+        {% for result in compliance_report if result.status == 'COMPLIANT' %}
+        [COMPLIANT] {{ result.control_id }}: {{ result.description }}
+        {% endfor %}
+        Non-Compliant:
+        {% for result in compliance_report if result.status == 'NON_COMPLIANT' %}
+        [NON_COMPLIANT] {{ result.control_id }}: {{ result.description }}
+        {% endfor %}
+
+  - name: Set Compliance Facts for Later Use
+    set_fact:
+      cloudera_compliance_report: "{{ compliance_report }}"
