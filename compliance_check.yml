@@ -68,9 +68,9 @@
         {% endfor %}
         Non-Compliant:
         {% for result in compliance_report if result.status == 'NON_COMPLIANT' %}
-        [NON_COMPLIANT] {{ result.control_id }}: {{ result.description }}
+        [NON_COMPLIANT] {{ result.control_id }}: {{ result.description }} But found: {{ result.actual_result | default('N/A') }}
         {% endfor %}
 
-  - name: Set Compliance Facts for Later Use
-    set_fact:
-      cloudera_compliance_report: "{{ compliance_report }}"
+  #- name: Set Compliance Facts for Later Use
+  #  set_fact:
+  #    cloudera_compliance_report: "{{ compliance_report }}"
