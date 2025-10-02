@@ -28,6 +28,13 @@
     set_fact:
       compliance_report: []
 
+  - name: Install the necesseryy package for running the playbook
+    package:
+      name: 
+        - ntpstat
+      state: present
+    become: yes
+
   - name: Execute Each Compliance Check
     include_tasks: compliance_check_block.yml
     loop: "{{ controls_csv.list }}"
@@ -41,11 +48,12 @@
         {% for result in compliance_report %}
         [{{ result.status }}] {{ result.control_id }}: {{ result.description }}
         {% endfor %}
+      
 
   - name: Save Compliance Report to JSON File
     copy:
       content: "{{ compliance_report | to_nice_json }}"
-      dest: cloudera_compliance_report
+      dest: "{{ cloudera_compliance_report }}"
     become: false
     run_once: true
 

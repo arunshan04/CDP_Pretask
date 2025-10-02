@@ -4,7 +4,7 @@
 - name: Run Check Command for Control {{ item.control_id }}
   shell: "{{ item.check_command }}"
   register: check_result
-  ignore_errors: yes
+  failed_when: false
   changed_when: false
 
 - name: Determine Compliance Status for {{ item.control_id }}
@@ -27,7 +27,7 @@
         'expected_result': item.expected_result,
         'actual_result': check_result.stdout | trim,
         'exit_code': check_result.rc,
-        'status': compliance_status,
+        'status': compliance_status | trim,
         'remediable': item.remediable,
         'remediation_command': item.remediation_command
       }] }}
