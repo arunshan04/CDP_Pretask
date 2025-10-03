@@ -7,14 +7,31 @@
   become: yes
   vars:
     compliance_report_file: "/tmp/compliance_report_{{ inventory_hostname }}.json"
+    clouderaManagerRepo: "config/clouderaManager.repo"
 
   tasks:
+  - name: Copy ClouderaManager Repo to Remote Host
+    copy:
+      src: "{{ clouderaManagerRepo }}"
+      dest: clouderaManager.repo
+    become: false
+
+
+
   - name: Load Compliance Report
     slurp:
       src: "{{ compliance_report_file }}"
     register: compliance_report_raw
-    delegate_to: localhost
     run_once: true
+
+  - name: Install the necessary packages for running the playbook
+    package:
+      name: 
+        - ntpstat
+        - bind-utils
+        - chrony
+      state: present
+    become: yes
 
   - name: Parse Compliance Report JSON
     set_fact:
@@ -33,32 +50,41 @@
         - {{ item.control_id }}: {{ item.description }}
         {% endfor %}
 
-  - name: Remediate Non-Compliant Item
-    block:
-    - name: Execute Remediation Command for {{ item.control_id }}
-      shell: "{{ item.remediation_command }}"
-      register: remediation_result
-
-    - name: Verify Remediation for {{ item.control_id }}
-      shell: "{{ item.check_command }}"
-      register: verify_result
-      ignore_errors: yes
-
-    - name: Determine if Remediation Succeeded for {{ item.control_id }}
-      set_fact:
-        remediation_success: >-
-          {% if item.expected_result is defined and item.expected_result | length > 0 %}
-            {{ (verify_result.stdout | trim == item.expected_result) }}
-          {% else %}
-            {{ (verify_result.rc == 0) }}
-          {% endif %}
-
-    - name: Report Remediation Outcome for {{ item.control_id }}
-      debug:
-        msg: "Remediation for {{ item.control_id }} {% if remediation_success %}SUCCEEDED{% else %}FAILED{% endif %}"
-
+  - name: Execute Remediation Command
+    shell: "{{ item.remediation_command }}"
+    register: remediation_result
     loop: "{{ items_to_remediate }}"
     loop_control:
+      loop_var: item
+
+  - name: Verify Remediation
+    shell: "{{ item.check_command }}"
+    register: verify_result
+    ignore_errors: yes
+    loop: "{{ items_to_remediate }}"
+    loop_control:
+      loop_var: item
+
+  - name: Determine if Remediation Succeeded
+    set_fact:
+      remediation_success: >-
+        {% set result = item.1 %}
+        {% set rem_item = item.0 %}
+        {% if rem_item.expected_result is defined and rem_item.expected_result | length > 0 %}
+          {{ (result.stdout | trim == rem_item.expected_result) }}
+        {% else %}
+          {{ (result.rc == 0) }}
+        {% endif %}
+    loop: "{{ items_to_remediate | zip(verify_result.results) }}"
+    loop_control:
+      loop_var: item
+
+  - name: Report Remediation Outcome
+    debug:
+      msg: "Remediation for {{ item.control_id }} {% if remediation_success %}SUCCEEDED{% else %}FAILED{% endif %}"
+    loop: "{{ items_to_remediate }}"
+    loop_control:
+      loop_var: item
       label: "{{ item.control_id }} - {{ item.description }}"
     when: items_to_remediate | length > 0
 

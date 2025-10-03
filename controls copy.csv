@@ -1,0 +1,15 @@
+category,control_id,description,check_command,expected_result,remediable,remediation_command
+System,Hostname_001,Hostname should unique name ,test  hostname != "localhost",,false,
+System,SELINUX_001,SELinux should be disabled,getenforce,Disabled,true,setenforce 0 && sed -i 's/^SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
+System,FIREWALL_001,Firewalld should not be running (RHEL7+),systemctl is-active firewalld,inactive,true,systemctl stop firewalld && systemctl disable firewalld
+System,COROSYNC_002,Chrony service should be running,systemctl is-active chronyd,active,true,systemctl enable chronyd && systemctl start chronyd
+#System,SWAP_001,Swappiness should be 1,cat /proc/sys/vm/swappiness,1,true,echo 1 > /proc/sys/vm/swappiness && echo 'vm.swappiness=1' >> /etc/sysctl.conf
+#System,THP_001,Transparent Huge Pages should be disabled (defrag),grep -F '[never]' /sys/kernel/mm/transparent_hugepage/defrag,[never],true,echo never > /sys/kernel/mm/transparent_hugepage/defrag
+#System,THP_002,Transparent Huge Pages should be disabled (enabled),grep -F '[never]' /sys/kernel/mm/transparent_hugepage/enabled,[never],true,echo never > /sys/kernel/mm/transparent_hugepage/enabled
+#System,GRUB_001,GRUB should have the transparent_hugepage=never kernel parameter,grep -E 'transparent_hugepage=never' /etc/default/grub,transparent_hugepage=never,true,sed -i 's/GRUB_CMDLINE_LINUX="/GRUB_CMDLINE_LINUX="transparent_hugepage=never /' /etc/default/grub && grub2-mkconfig -o /boot/grub2/grub.cfg
+#System,PKG_001,NTPD is not installed,rpm -q ntp,ntp-*,true,yum install -y ntp
+#Network,FIREWALL_001,Firewalld should not be running (RHEL7+),systemctl is-active firewalld,unknown,true,systemctl stop firewalld && systemctl disable firewalld
+#Network,IPTABLES_001,Iptables should not be running (pre-RHEL7),service iptables status,,true,service iptables stop && chkconfig iptables off
+#Java,JAVA_001,Java 8 or later should be installed and supported,find /usr/java -name "java" -exec {} -version \; 2>&1 | grep -E "1\.8\.[0-9]+",,false,
+#System,OVERCOMMIT_001,Overcommit memory should be 1,cat /proc/sys/vm/overcommit_memory,1,true,echo 1 > /proc/sys/vm/overcommit_memory && echo 'vm.overcommit_memory=1' >> /etc/sysctl.conf
+#System,NTP_001,NTP should be synced,ntpstat | grep -c "synchronised to NTP server",1,false,

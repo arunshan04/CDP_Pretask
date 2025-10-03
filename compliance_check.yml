@@ -10,6 +10,7 @@
     compliance_report: []
     csv_delimiter: ","
     cloudera_compliance_report: "/tmp/compliance_report_{{ inventory_hostname }}.json"
+    clouderaManagerRepo: "files/cloudera-manager.repo"
 
   tasks:
   - name: Copy controls.csv to remote host
@@ -27,13 +28,6 @@
   - name: Initialize Compliance Report
     set_fact:
       compliance_report: []
-
-  - name: Install the necesseryy package for running the playbook
-    package:
-      name: 
-        - ntpstat
-      state: present
-    become: yes
 
   - name: Execute Each Compliance Check
     include_tasks: compliance_check_block.yml

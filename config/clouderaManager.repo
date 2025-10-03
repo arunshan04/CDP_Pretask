@@ -1,0 +1,7 @@
+[ClouderaManager]
+name = Cloudera Manager Repository
+baseurl = https://customreposerver:443/cloudera-manager/redhat8/yum/
+enabled = 0
+metadata_expire = 86400
+enabled_metadata = 0
+timeout=5
