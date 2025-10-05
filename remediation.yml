@@ -57,6 +57,16 @@
     loop_control:
       loop_var: item
 
+  - name: Display Remediation Command Result
+    debug:
+      msg: |
+        Remediation Command for {{ item.item.control_id }} executed with exit code {{ item.rc }}.
+        Stdout: {{ item.stdout | trim }}
+        Stderr: {{ item.stderr | trim }}
+    loop: "{{ remediation_result.results }}"
+    loop_control:
+      loop_var: item
+
   - name: Verify Remediation
     shell: "{{ item.check_command }}"
     register: verify_result

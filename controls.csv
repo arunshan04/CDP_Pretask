@@ -4,8 +4,12 @@ System,ARCH_001,Ensure the system is running a 64-bit architecture,uname -m,x86_
 System,SELINUX_001,SELinux should be disabled,grep '^SELINUX=disabled' /etc/selinux/config,SELINUX=disabled,true,setenforce 0 ;sed -i 's/^SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
 System,FIREWALL_001,Firewalld should not be running (RHEL7+),systemctl show -p ActiveState firewalld,ActiveState=inactive,true,systemctl stop firewalld && systemctl disable firewalld
 System,COROSYNC_002,Chrony service should be running,systemctl show -p ActiveState chronyd,ActiveState=active,true,systemctl enable chronyd && systemctl start chronyd
-System,COROSYNC_003,Corosync service should be sync with NTP server,chronyc -a makestep,200 OK,true,systemctl enable chronyd && systemctl start chronyd
+Software,COROSYNC_003,Corosync service should be sync with NTP server,chronyc -a makestep,200 OK,true,systemctl enable chronyd && systemctl start chronyd
+Software,NSCD_001,NSCD service should be running,systemctl show -p ActiveState nscd,ActiveState=active,true,yum install nscd -y && systemctl start nscd && systemctl enable nscd
+Software,yum_001,Ensure All the updates are installed,yum  check-update | grep -v '^Updating \|^Last'| wc -l,0,true,yum update -y
 Repository,CM_REPO_001,Cloudera Manager repository should be configured, ls /etc/yum.repos.d/clouderaManager.repo ,/etc/yum.repos.d/clouderaManager.repo,true,cp clouderaManager.repo /etc/yum.repos.d/
-System,CUPS_001,CUPS service should not be running,systemctl show -p ActiveState cups,ActiveState=inactive,true,systemctl stop cups && systemctl disable cups
+System,CUPS_001,CUPS service should not be running,systemctl show -p ActiveState cups,ActiveState=inactive,true,yum remove -y cups
 System,NFTABLES_001,NFTables service should not be running,systemctl show -p ActiveState nftables,ActiveState=inactive,true,systemctl stop nftables && systemctl disable nftables
 System,SSSD_001,SSSD service should running,systemctl show -p ActiveState sssd,ActiveState=active,true,systemctl start sssd && systemctl enable sssd
+System,JAVA_001,Java should be installed,java -version 2>&1 | grep 'openjdk version ',openjdk version "1.8.0_462",true,yum install -y java-1.8.0-openjdk.aarch64
+Network,IPv6_001,IPv6 should be disabled,sysctl net.ipv6.conf.all.disable_ipv6 ,net.ipv6.conf.all.disable_ipv6 = 1,true,echo "net.ipv6.conf.all.disable_ipv6 = 1" >> /etc/sysctl.conf && sysctl -p

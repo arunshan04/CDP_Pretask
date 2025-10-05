@@ -7,6 +7,16 @@
   failed_when: false
   changed_when: false
 
+- name: Command Output for {{ item.control_id }}
+  debug:
+    msg: |
+      Control ID: {{ item.control_id }}
+      Description: {{ item.description }}
+      Check Command: {{ item.check_command }}
+      Expected Result: {{ item.expected_result | default('N/A') }}
+      Actual Result: {{ check_result.stdout | trim }}
+      Exit Code: {{ check_result.rc }}
+
 - name: Determine Compliance Status for {{ item.control_id }}
   set_fact:
     compliance_status: >-

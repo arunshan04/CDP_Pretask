@@ -11,8 +11,26 @@
     csv_delimiter: ","
     cloudera_compliance_report: "/tmp/compliance_report_{{ inventory_hostname }}.json"
     clouderaManagerRepo: "files/cloudera-manager.repo"
+    local_config_dir: "./config"
+    remote_config_parent: "/tmp/config" 
+
 
   tasks:
+  - name: Ensure remote parent directory exists
+    ansible.builtin.file:
+      path: "{{ remote_config_parent }}"
+      state: directory
+      mode: '0755'
+
+  - name: Synchronize local config directory to remote
+    ansible.builtin.synchronize:
+      src: "{{ local_config_dir }}/"
+      dest: "{{ remote_config_parent }}"
+      rsync_opts:
+        - "--chmod=Du=rwx,Dg=rx,Do=rx,Fu=rw,Fg=r,Fo=r"   # optional permission normalization
+      recursive: yes
+      delete: no          # change to yes if you want exact mirror
+
   - name: Copy controls.csv to remote host
     copy:
       src: controls.csv
