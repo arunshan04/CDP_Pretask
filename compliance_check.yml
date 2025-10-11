@@ -63,13 +63,13 @@
     loop_control:
       label: "{{ item.control_id }} - {{ item.description }}"
 
-  - name: Display Compliance Summary
-    debug:
-      msg: |
-        Compliance Check Summary:
-        {% for result in compliance_report %}
-        [{{ result.status }}] {{ result.control_id }}: {{ result.description }}
-        {% endfor %}
+  # - name: Display Compliance Summary
+  #   debug:
+  #     msg: |
+  #       Compliance Check Summary:
+  #       {% for result in compliance_report %}
+  #       [{{ result.status }}] {{ result.control_id }}: {{ result.description }}
+  #       {% endfor %}
       
 
   - name: Save Compliance Report to JSON File
@@ -82,31 +82,18 @@
 
   - name: Print Compliance Summary
     vars:
-      total_controls: "{{ compliance_report | length }}"
-      compliant_count: "{{ compliance_report | selectattr('status', 'equalto', 'COMPLIANT') | list | length }}"
-      non_compliant_count: "{{ compliance_report | selectattr('status', 'equalto', 'NON_COMPLIANT') | list | length }}"
+      sorted_compliance_report: "{{ compliance_report | sort(attribute='status') }}"
+      total_controls: "{{ sorted_compliance_report | length }}"
+      compliant_count: "{{ sorted_compliance_report | selectattr('status', 'equalto', 'COMPLIANT') | list | length }}"
+      non_compliant_count: "{{ sorted_compliance_report | selectattr('status', 'equalto', 'NON_COMPLIANT') | list | length }}"
       compliance_score: "{{ (compliant_count | float / (total_controls | float) * 100) | round(2) }}"
-    ansible.builtin.debug:
+    debug:
       msg: |
-        ==================================================
-        🧾 Compliance Results Summary for {{ inventory_hostname }}
-        ==================================================
-
-        ✅ Compliant Controls:
-        {% for result in compliance_report if result.status == 'COMPLIANT' %}
-        [COMPLIANT] {{ result.control_id }}: {{ result.description }}
-        {% endfor %}
-
-        ❌ Non-Compliant Controls:
-        {% for result in compliance_report if result.status == 'NON_COMPLIANT' %}
-        [NON_COMPLIANT] {{ result.control_id }}: {{ result.description }}
-        But found: {{ result.actual_result | default('N/A') }}
-        {% endfor %}
-
-        --------------------------------------------------
-        📊 Summary:
-        Total Controls: {{ total_controls }}
-        Compliant: {{ compliant_count }}
-        Non-Compliant: {{ non_compliant_count }}
-        Compliance Score: {{ compliance_score }}%
-        ==================================================
+        Compliance Check Summary:
+          {% for result in sorted_compliance_report %}
+            {% if result.status == 'COMPLIANT' %}
+              [COMPLIANT] {{ result.control_id }}: {{ result.description }}
+            {% elif result.status == 'NON_COMPLIANT' %}
+              [NON_COMPLIANT] {{ result.control_id }}: {{ result.description }} But found: {{ result.actual_result | default('N/A') }}
+            {% endif %}
+          {% endfor %}

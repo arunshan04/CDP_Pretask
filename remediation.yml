@@ -8,6 +8,8 @@
   vars:
     compliance_report_file: "/tmp/compliance_report_{{ inventory_hostname }}.json"
     clouderaManagerRepo: "config/clouderaManager.repo"
+    csv_delimiter: ","
+
 
   tasks:
   - name: Copy ClouderaManager Repo to Remote Host
@@ -15,6 +17,28 @@
       src: "{{ clouderaManagerRepo }}"
       dest: clouderaManager.repo
     become: false
+
+  - name: Copy controls.csv to remote host
+    copy:
+      src: controls.csv
+      dest: /tmp/controls.csv
+    become: false
+
+  - name: Read Controls CSV File
+    read_csv:
+      path: "/tmp/controls.csv"
+      delimiter: "{{ csv_delimiter }}"
+    register: controls_csv
+
+  - name: Filter valid (non-comment, non-empty) controls
+    set_fact:
+      valid_controls: >-
+        {{
+          controls_csv.list
+          | rejectattr('category', 'match', '^#.*')
+          | rejectattr('category', 'match', '^$')
+          | list
+        }}
 
 
 
@@ -25,13 +49,9 @@
     run_once: true
 
   - name: Install the necessary packages for running the playbook
-    package:
-      name: 
-        - ntpstat
-        - bind-utils
-        - chrony
-      state: present
-    become: yes
+    raw: sudo yum install -y ntpstat bind-utils chrony yum-utils
+    register: install_result
+    ignore_errors: yes
 
   - name: Parse Compliance Report JSON
     set_fact:
@@ -40,7 +60,13 @@
   - name: Filter for Non-Compliant and Remediable Items
     set_fact:
       items_to_remediate: >-
-        {{ compliance_report | selectattr('status', '!=', 'COMPLIANT') | selectattr('remediable', '==', 'true') | list }}
+        {{
+          compliance_report
+          | selectattr('status', '!=', 'COMPLIANT')
+          | selectattr('remediable', '==', 'true')
+          | selectattr('control_id', 'in', valid_controls | map(attribute='control_id') | list)
+          | list
+        }}
 
   - name: Display Items to Remediate
     debug:
@@ -53,6 +79,7 @@
   - name: Execute Remediation Command
     shell: "{{ item.remediation_command }}"
     register: remediation_result
+    ignore_errors: yes
     loop: "{{ items_to_remediate }}"
     loop_control:
       loop_var: item
