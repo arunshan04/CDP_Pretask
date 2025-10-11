@@ -43,13 +43,23 @@
       delimiter: "{{ csv_delimiter }}"
     register: controls_csv
 
+  - name: Filter valid (non-comment, non-empty) controls
+    set_fact:
+      valid_controls: >-
+        {{
+          controls_csv.list
+          | rejectattr('category', 'match', '^#.*')
+          | rejectattr('category', 'match', '^$')
+          | list
+        }}
+
   - name: Initialize Compliance Report
     set_fact:
       compliance_report: []
 
   - name: Execute Each Compliance Check
     include_tasks: compliance_check_block.yml
-    loop: "{{ controls_csv.list }}"
+    loop: "{{ valid_controls }}"
     loop_control:
       label: "{{ item.control_id }} - {{ item.description }}"
 
@@ -71,18 +81,32 @@
 
 
   - name: Print Compliance Summary
-    debug:
+    vars:
+      total_controls: "{{ compliance_report | length }}"
+      compliant_count: "{{ compliance_report | selectattr('status', 'equalto', 'COMPLIANT') | list | length }}"
+      non_compliant_count: "{{ compliance_report | selectattr('status', 'equalto', 'NON_COMPLIANT') | list | length }}"
+      compliance_score: "{{ (compliant_count | float / (total_controls | float) * 100) | round(2) }}"
+    ansible.builtin.debug:
       msg: |
-        Compliance Results Summary:
-        Compliant:
+        ==================================================
+        🧾 Compliance Results Summary for {{ inventory_hostname }}
+        ==================================================
+
+        ✅ Compliant Controls:
         {% for result in compliance_report if result.status == 'COMPLIANT' %}
         [COMPLIANT] {{ result.control_id }}: {{ result.description }}
         {% endfor %}
-        Non-Compliant:
+
+        ❌ Non-Compliant Controls:
         {% for result in compliance_report if result.status == 'NON_COMPLIANT' %}
-        [NON_COMPLIANT] {{ result.control_id }}: {{ result.description }} But found: {{ result.actual_result | default('N/A') }}
+        [NON_COMPLIANT] {{ result.control_id }}: {{ result.description }}
+        But found: {{ result.actual_result | default('N/A') }}
         {% endfor %}
 
-  #- name: Set Compliance Facts for Later Use
-  #  set_fact:
-  #    cloudera_compliance_report: "{{ compliance_report }}"
+        --------------------------------------------------
+        📊 Summary:
+        Total Controls: {{ total_controls }}
+        Compliant: {{ compliant_count }}
+        Non-Compliant: {{ non_compliant_count }}
+        Compliance Score: {{ compliance_score }}%
+        ==================================================

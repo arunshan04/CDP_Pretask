@@ -13,3 +13,9 @@ System,NFTABLES_001,NFTables service should not be running,systemctl show -p Act
 System,SSSD_001,SSSD service should running,systemctl show -p ActiveState sssd,ActiveState=active,true,systemctl start sssd && systemctl enable sssd
 System,JAVA_001,Java should be installed,java -version 2>&1 | grep 'openjdk version ',openjdk version "1.8.0_462",true,yum install -y java-1.8.0-openjdk.aarch64
 Network,IPv6_001,IPv6 should be disabled,sysctl net.ipv6.conf.all.disable_ipv6 ,net.ipv6.conf.all.disable_ipv6 = 1,true,echo "net.ipv6.conf.all.disable_ipv6 = 1" >> /etc/sysctl.conf && sysctl -p
+System,SWAP_001,Swappiness should be 1,cat /proc/sys/vm/swappiness,1,true,echo 1 > /proc/sys/vm/swappiness && echo 'vm.swappiness=1' >> /etc/sysctl.conf
+
+##Transprant_huge space
+#System,TRANSPARENT_HUGEPAGE_001,Transparent Hugepage should be disabled,cat /sys/kernel/mm/transparent_hugepage/enabled ,[always] madvise [never],true,echo 'never' > /sys/kernel/mm/transparent_hugepage/enabled && echo 'never' > /sys/kernel/mm/transparent_hugepage/defrag && echo "echo 'never' > /sys/kernel/mm/transparent_hugepage/enabled" >> /etc/rc.local && echo "echo 'never' > /sys/kernel/mm/transparent_hugepage/defrag" >> /etc/rc.local && chmod +x /etc/rc.local
+#NTPD Service
+#Reboot
