@@ -1,3 +1,135 @@
+# Ansible Compliance & Remediation Playbooks
+
+This repository contains Ansible playbooks and support files for running system compliance checks and automated remediation.
+
+This document explains how to run the playbooks in this repo (except `pre-task.sh`, per request). It assumes you're using zsh on macOS (as seen in the workspace context).
+
+## Contents
+
+- `compliance_check.yml` - Playbook that reads `controls.csv`, executes checks, and writes a JSON compliance report.
+- `remediation.yml` - Playbook that reads a saved compliance report and attempts to remediate items marked `remediable: true`.
+- `controls.csv` - CSV file listing controls and how to check and remediate them.
+- `inventory.ini` - Ansible inventory. Adjust as needed.
+
+## Prerequisites
+
+- Ansible installed on your control node (recommended: ansible-core 2.12+ or latest stable). To check:
+
+```zsh
+ansible --version
+```
+
+- Python 3 on control node (zsh is the user shell in these examples).
+- SSH access to target hosts with a key or passwordless sudo for the account used by Ansible.
+- Ensure `controls.csv` is present in the repo root. The compliance playbook copies this to `/tmp/controls.csv` on target hosts.
+
+Notes about remote Python interpreter:
+- If the remote host uses a non-default Python path, set `ansible_python_interpreter` in `inventory.ini` or host_vars, e.g.:
+
+```
+[awsServer]
+ec2-54-254-157-69.ap-southeast-1.compute.amazonaws.com ansible_user=ec2-user ansible_python_interpreter=/usr/bin/python3.8
+```
+
+## Running the compliance checks
+
+1. Ensure your inventory is correct in `inventory.ini` and SSH connectivity works:
+
+```zsh
+ansible -i inventory.ini -m ping all -u <user>
+```
+
+2. Run the compliance check playbook (control node / workspace root):
+
+```zsh
+# run with default inventory
+ansible-playbook -i inventory.ini compliance_check.yml
+
+# run with verbose output for debugging
+ansible-playbook -i inventory.ini compliance_check.yml -vvv
+```
+
+What it does:
+- Copies `controls.csv` to `/tmp/controls.csv` on the target host.
+- Runs the checks defined in `controls.csv` (via `compliance_check_block.yml`) and accumulates results in `compliance_report`.
+- Writes a JSON report to `/tmp/compliance_report_<hostname>.json` (configurable via variable `cloudera_compliance_report`).
+- Prints a sorted compliance summary grouped by status.
+
+Notes:
+- The playbook expects results to include `status` and (for non-compliant items) `actual_result` when present.
+
+## Running remediation
+
+After you have a compliance report (created by the `compliance_check.yml` run), run the remediation playbook to attempt automatic fixes for remediable items.
+
+```zsh
+ansible-playbook -i inventory.ini remediation.yml
+
+# verbose
+ansible-playbook -i inventory.ini remediation.yml -vvv
+```
+
+What it does:
+- Loads `/tmp/compliance_report_<hostname>.json` (the playbook reads the file for the host it targets). Ensure the file exists on the controller or has been copied to the remote host as the play expects.
+- Filters items with `status != COMPLIANT` and `remediable == true`.
+- Attempts remediation commands (the playbook registers and displays results). The playbook now ignores errors for remediation commands so it can continue to attempt further remediations.
+- Verifies remediation by running configured check commands and determines success by matching stdout to `expected_result` (or rc==0 when no expected result is configured).
+
+Important reboot behavior:
+- If a remediation issues `reboot`, Ansible's SSH connection will drop and the host will be marked `unreachable` until it comes back up. Use the `reboot` module or wrap reboot operations with a `rescue` and wait/reconnect strategy if you want the playbook to resume automatically.
+
+## Common troubleshooting and tips
+
+- Error: `SyntaxError: future feature annotations is not defined` or module failures referencing `ansible.module_utils.basic`:
+  - This usually indicates the remote Python is too old for the Ansible module code. Install/point Ansible to Python 3.8+ on remote and set `ansible_python_interpreter` in inventory.
+
+- Error: `TypeError: unsupported operand type(s) for |: '_Environ' and 'dict'` from `dnf` module:
+  - Some combinations of Ansible version and remote Python cause module respawn logic to fail when Ansible tries to probe interpreters. Workarounds:
+    - Use `yum` (or `raw` fallback) instead of `dnf` in tasks.
+    - Upgrade Ansible to a newer version on the control node.
+    - Clean remote `/home/<user>/.ansible/tmp` before re-running.
+
+- Host becomes unreachable after `reboot` remediation:
+  - This is expected. Use the `reboot` module with `reboot_timeout` and `test_command` so Ansible waits for host availability.
+
+- Force push / git errors:
+  - Make an initial commit locally and push without `-f`. If branch is protected on remote, push to a new branch and create a merge request.
+
+## Variables you can tune
+
+- `controls_file` - path to CSV file (default `controls.csv`).
+- `csv_delimiter` - CSV delimiter, default `,`.
+- `cloudera_compliance_report` - output JSON path on target host (or controller if used that way).
+- `items_to_remediate` and `valid_controls` - internal variables used by the remediation playbook to determine which items to attempt.
+
+## Example: Run only a single task or tag
+
+If you want to run a single included task file for testing, you can use `--start-at-task` with the exact task name printed by the playbook output. Or run with tags if implemented.
+
+```zsh
+# Run starting at a specific task name
+ansible-playbook -i inventory.ini remediation.yml --start-at-task "Display Items to Remediate"
+```
+
+## Verification / Outputs
+
+- Compliance JSON files are written to `/tmp/compliance_report_<inventory_hostname>.json` by default. Inspect them with `jq` or `python -m json.tool`.
+
+```zsh
+ansible -i inventory.ini -m shell -a 'cat /tmp/compliance_report_$(hostname).json' myAppServer
+```
+
+## Security & best practices
+
+- Do not store sensitive credentials directly in `controls.csv` or playbooks. Use Ansible Vault for secrets.
+- Review remediation commands carefully — some commands (like `reboot`, package removals, or system config changes) may have service impact.
+
+## If something is unclear
+
+Open an issue or describe the failing task output. Include the task debug output and the relevant parts of `controls.csv` for the failing control.
+
+---
+End of documentation.
 <<<<<<< HEAD
 # v3
 

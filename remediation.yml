@@ -102,34 +102,30 @@
     loop_control:
       loop_var: item
 
-  - name: Determine if Remediation Succeeded
+  - name: Build remediation result list
     set_fact:
-      remediation_success: >-
-        {% set result = item.1 %}
-        {% set rem_item = item.0 %}
-        {% if rem_item.expected_result is defined and rem_item.expected_result | length > 0 %}
-          {{ (result.stdout | trim == rem_item.expected_result) }}
-        {% else %}
-          {{ (result.rc == 0) }}
-        {% endif %}
+      remediations: "{{ remediations | default([]) + [ rem_item | combine({'remediation_success': ( (result.stdout | trim == rem_item.expected_result) if (rem_item.expected_result is defined and rem_item.expected_result | length > 0) else (result.rc == 0) ) }) ] }}"
     loop: "{{ items_to_remediate | zip(verify_result.results) }}"
     loop_control:
-      loop_var: item
+      loop_var: pair
+    vars:
+      rem_item: "{{ pair.0 }}"
+      result: "{{ pair.1 }}"
 
   - name: Report Remediation Outcome
     debug:
-      msg: "Remediation for {{ item.control_id }} {% if remediation_success %}SUCCEEDED{% else %}FAILED{% endif %}"
-    loop: "{{ items_to_remediate }}"
+      msg: "Remediation for {{ item.control_id }} {% if item.remediation_success %}SUCCEEDED{% else %}FAILED{% endif %}"
+    loop: "{{ remediations }}"
     loop_control:
       loop_var: item
       label: "{{ item.control_id }} - {{ item.description }}"
-    when: items_to_remediate | length > 0
+    when: remediations is defined and remediations | length > 0
 
   - name: Generate Final Remediation Summary
     debug:
       msg: |
         Remediation Summary:
-        {% for item in items_to_remediate %}
+        {% for item in remediations | default([]) %}
         [{{ (item.remediation_success | default(false)) | ternary('FIXED', 'FAILED') }}] {{ item.control_id }}: {{ item.description }}
         {% endfor %}
-    when: items_to_remediate | length > 0
+    when: remediations is defined and remediations | length > 0
