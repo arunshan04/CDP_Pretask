@@ -104,7 +104,21 @@
 
   - name: Build remediation result list
     set_fact:
-      remediations: "{{ remediations | default([]) + [ rem_item | combine({'remediation_success': ( (result.stdout | trim == rem_item.expected_result) if (rem_item.expected_result is defined and rem_item.expected_result | length > 0) else (result.rc == 0) ) }) ] }}"
+      remediations: >-
+        {{
+          remediations | default([])
+          + [ rem_item | combine({
+              'remediation_success': (
+                (
+                  rem_item.expected_result in (
+                    ((result.stdout | default('')) + '\n' + (result.stderr | default('')) ) | trim
+                  )
+                )
+                if (rem_item.expected_result is defined and rem_item.expected_result | length > 0)
+                else (result.rc == 0)
+              )
+            })]
+        }}
     loop: "{{ items_to_remediate | zip(verify_result.results) }}"
     loop_control:
       loop_var: pair
