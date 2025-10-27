@@ -1,0 +1,21 @@
+1. Run the Template
+ aws ec2 run-instances  --launch-template LaunchTemplateName=redhatServer
+2. Get the Running Instances
+
+aws ec2 describe-instances \
+  --region ap-southeast-1 \
+  --filters Name=instance-state-name,Values=running \
+  --query "Reservations[].Instances[].{Name: Tags[?Key=='Name'].Value | [0], IP: PublicIpAddress, PublicURL: PublicDnsName, Region: Placement.AvailabilityZone}" \
+  --output table
+
+
+3. Terminate the EC2 Instances
+
+aws ec2 terminate-instances \
+  --region ap-southeast-1 \
+  --instance-ids $(aws ec2 describe-instances \
+    --region ap-southeast-1 \
+    --filters Name=instance-state-name,Values=running \
+    --query "Reservations[].Instances[].InstanceId" \
+    --output text)
+
